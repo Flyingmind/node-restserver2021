@@ -1,45 +1,81 @@
 const { response} = require('express');
+const bcryptjs = require('bcryptjs'); 
 
-const usuariosGet = (req, res) => {
+const Usuario = require('../models/usuario');
+const { validationResult } = require('express-validator');
 
-    const {q, nombre, apikey} = req.query;
+const usuariosGet = async (req, res) => {
+
+    
+    const { limite = 5, desde = 0 } = req.query;
+    const query = { estado: true };
+
+    const [ total, usuarios ] = await Promise.all([
+        Usuario.countDocuments( query ),
+        Usuario.find( query )
+        .skip( Number( desde ) )
+        .limit( Number( limite ) )
+    ]);
+
+    res.json ( { total, usuarios } );
+
+}
+
+
+const usuariosPost = async (req, res) => {
+
+
+
+    const {nombre, correo, password, rol} = req.body;
+    const usuario = new Usuario( {nombre, correo, password, rol});
+
+
+    // encriptar la contrasena
+    const salt = bcryptjs.genSaltSync();
+    usuario.password = bcryptjs.hashSync(password, salt);
+    
+
+    // guardar en la BD    
+    await usuario.save();
 
     res.json ({
-        msg: 'get API - controlador',
-        q,
-        nombre,
-        apikey
+        usuario
     });
 
 }
 
-
-const usuariosPost = (req, res) => {
-
-    const body = req.body;
-
-    res.json ({
-        msg: 'Post API - controlador',
-        body
-    });
-
-}
-
-const usuariosPut = (req, res) => {
+const usuariosPut = async (req, res) => {
 
     const { id } = req.params;
 
-    res.json ({
-        msg: 'put API - controlador',
-        id
-    });
+    const { password, google, ...resto} = req.body;
+    
+    // TODO validar contra base de datos
+    if ( password ) {
+
+        // encriptar la contrasena
+        const salt = bcryptjs.genSaltSync();
+        resto.password = bcryptjs.hashSync(password, salt);
+
+    }
+
+    const usuario = await Usuario.findByIdAndUpdate( id, resto);
+
+    res.json ( usuario );
 
 }
 
-const usuariosDelete = (req, res) => {
-    res.json ({
-        msg: 'delete API - controlador'
-    });
+const usuariosDelete = async (req, res) => {
+
+    const { id } = req.params;
+
+    //Fisicamente lo borramos
+    //const usuario = await Usuario.findByIdAndDelete( id );
+
+    const usuario = await Usuario.findByIdAndUpdate( id, {estado: false } );
+
+
+    res.json (usuario);
 
 }
 
